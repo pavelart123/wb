@@ -6,6 +6,10 @@
       "use": "@vercel/static"
     },
     {
+      "src": "api/index.js",
+      "use": "@vercel/node"
+    },
+    {
       "src": "dist/**/server/**/*.mjs",
       "use": "@vercel/node"
     }
@@ -13,7 +17,7 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/api/$1"
+      "dest": "/api/index.js"
     },
     {
       "handle": "filesystem"
@@ -22,10 +26,5 @@
       "src": "/(.*)",
       "dest": "dist/server/server.mjs"
     }
-  ],
-  "functions": {
-    "dist/server/server.mjs": {
-      "includeFiles": "dist/**"
-    }
-  }
+  ]
 }
