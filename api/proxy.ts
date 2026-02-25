@@ -1,19 +1,27 @@
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const pathname = url.pathname;
 
+  // Логирование для отладки (посмотрите в Vercel Functions Logs)
+  console.log('Requested path:', pathname);
+
   const segments = pathname.split('/').filter(Boolean);
+  console.log('Segments:', segments);
+
   let query = '';
 
-  // Ищем 'search' и берём следующий сегмент как query (decodeURIComponent обязателен для кириллицы)
-  const searchIndex = segments.indexOf('search');
-  if (searchIndex !== -1 && searchIndex + 1 < segments.length) {
-    query = decodeURIComponent(segments[searchIndex + 1]);
+  const searchIdx = segments.indexOf('search');
+  if (searchIdx !== -1 && searchIdx + 1 < segments.length) {
+    query = decodeURIComponent(segments[searchIdx + 1]);
   }
 
-  // Дополнительная проверка на случай ?query=... (маловероятно, но полезно)
   if (!query) {
     query = url.searchParams.get('query') || '';
   }
+
+  console.log('Extracted query:', query);
 
   if (!query.trim()) {
     return NextResponse.json(
@@ -22,7 +30,7 @@
     );
   }
 
-  const wbParams = new URLSearchParams({
+  const params = new URLSearchParams({
     appType: '1',
     curr: 'rub',
     dest: '-1257786',
@@ -35,31 +43,19 @@
     suppressSpellcheck: 'false',
   });
 
-  const targetUrl = `https://search.wb.ru/exactmatch/ru/common/v18/search?${wbParams.toString()}`;
+  const target = `https://search.wb.ru/exactmatch/ru/common/v18/search?${params}`;
 
   try {
-    const response = await fetch(targetUrl, {
+    const res = await fetch(target, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Referer': 'https://www.wildberries.ru/',
-        'Accept': 'application/json',
       },
     });
 
-    const data = await response.text();
-
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: `WB API error ${response.status}`, body: data.substring(0, 500) },
-        { status: response.status }
-      );
-    }
-
-    return new NextResponse(data, {
-      status: 200,
-      headers: { 'Content-Type': 'application/json;charset=utf-8' },
-    });
-  } catch (error) {
-    console.error('Proxy error:', error);
-    return NextResponse.json({ error: 'Ошибка при запросе к WB' }, { status: 500 });
+    const data = await res.text();
+    return new NextResponse(data, { status: res.status });
+  } catch (e) {
+    return NextResponse.json({ error: 'fetch failed' }, { status: 500 });
   }
+}
