@@ -1,20 +1,16 @@
-// /api/proxy.ts
-import { NextRequest, NextResponse } from 'next/server';
-
-export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const pathname = url.pathname;
 
-  // Разбиваем путь и ищем сегмент после 'search'
   const segments = pathname.split('/').filter(Boolean);
   let query = '';
 
-  const searchPos = segments.indexOf('search');
-  if (searchPos !== -1 && searchPos + 1 < segments.length) {
-    query = decodeURIComponent(segments[searchPos + 1]);
+  // Ищем 'search' и берём следующий сегмент как query (decodeURIComponent обязателен для кириллицы)
+  const searchIndex = segments.indexOf('search');
+  if (searchIndex !== -1 && searchIndex + 1 < segments.length) {
+    query = decodeURIComponent(segments[searchIndex + 1]);
   }
 
-  // Если не нашли в пути — проверяем ?query=... (запасной вариант)
+  // Дополнительная проверка на случай ?query=... (маловероятно, но полезно)
   if (!query) {
     query = url.searchParams.get('query') || '';
   }
@@ -26,24 +22,23 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Параметры для Wildberries API
-  const params = new URLSearchParams({
+  const wbParams = new URLSearchParams({
     appType: '1',
     curr: 'rub',
     dest: '-1257786',
     lang: 'ru',
     page: url.searchParams.get('page') || '1',
-    query: query,
+    query,
     resultset: 'catalog',
     sort: 'popular',
     spp: '30',
     suppressSpellcheck: 'false',
   });
 
-  const targetUrl = `https://search.wb.ru/exactmatch/ru/common/v18/search?${params.toString()}`;
+  const targetUrl = `https://search.wb.ru/exactmatch/ru/common/v18/search?${wbParams.toString()}`;
 
   try {
-    const res = await fetch(targetUrl, {
+    const response = await fetch(targetUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
         'Referer': 'https://www.wildberries.ru/',
@@ -51,12 +46,12 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const data = await res.text();
+    const data = await response.text();
 
-    if (!res.ok) {
+    if (!response.ok) {
       return NextResponse.json(
-        { error: `Wildberries вернул ошибку ${res.status}`, details: data },
-        { status: res.status }
+        { error: `WB API error ${response.status}`, body: data.substring(0, 500) },
+        { status: response.status }
       );
     }
 
@@ -64,10 +59,7 @@ export async function GET(request: NextRequest) {
       status: 200,
       headers: { 'Content-Type': 'application/json;charset=utf-8' },
     });
-  } catch (err) {
-    return NextResponse.json(
-      { error: 'Ошибка при обращении к API Wildberries' },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error('Proxy error:', error);
+    return NextResponse.json({ error: 'Ошибка при запросе к WB' }, { status: 500 });
   }
-}
