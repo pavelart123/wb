@@ -2,25 +2,34 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
-  const pathname = url.pathname;
 
-  const segments = pathname.split('/').filter(Boolean);
+  console.log('Invocation started:', request.headers.get('x-vercel-id') || 'no-id');
+  console.log('Full URL:', request.url);
+  console.log('Pathname:', url.pathname);
+  console.log('Search:', url.search);
+  console.log('Segments:', url.pathname.split('/').filter(Boolean));
+
   let query = '';
 
-  const searchIndex = segments.indexOf('search');
-  if (searchIndex !== -1 && searchIndex + 1 < segments.length) {
-    query = decodeURIComponent(segments[searchIndex + 1]);
+  try {
+    const segments = url.pathname.split('/').filter(Boolean);
+    if (segments.length >= 4 && segments[2] === 'search') {
+      query = decodeURIComponent(segments[3]);
+    } else if (segments.length > 0) {
+      query = decodeURIComponent(segments[segments.length - 1]);
+    }
+  } catch (e) {
+    console.error('Ошибка разбора пути:', e);
   }
 
   if (!query) {
     query = url.searchParams.get('query') || '';
   }
 
+  console.log('Query после извлечения:', query || '(пусто)');
+
   if (!query.trim()) {
-    return NextResponse.json(
-      { error: 'поле query должно быть задано', code: 400 },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'поле query должно быть задано', code: 400 }, { status: 400 });
   }
 
   const wbParams = new URLSearchParams({
@@ -29,7 +38,7 @@ export async function GET(request: NextRequest) {
     dest: '-1257786',
     lang: 'ru',
     page: url.searchParams.get('page') || '1',
-    query: query,
+    query,
     resultset: 'catalog',
     sort: 'popular',
     spp: '30',
@@ -37,6 +46,7 @@ export async function GET(request: NextRequest) {
   });
 
   const targetUrl = `https://u-search.wb.ru/exactmatch/ru/common/v18/search?${wbParams.toString()}`;
+  console.log('Target URL:', targetUrl);
 
   try {
     const response = await fetch(targetUrl, {
@@ -47,13 +57,13 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    console.log('WB response status:', response.status);
+
     const data = await response.text();
 
     if (!response.ok) {
-      return NextResponse.json(
-        { error: `WB API error ${response.status}`, details: data.substring(0, 500) },
-        { status: response.status }
-      );
+      console.log('WB error body preview:', data.substring(0, 400));
+      return NextResponse.json({ error: `WB API ${response.status}`, details: data.substring(0, 300) }, { status: response.status });
     }
 
     return new NextResponse(data, {
@@ -61,6 +71,7 @@ export async function GET(request: NextRequest) {
       headers: { 'Content-Type': 'application/json;charset=utf-8' },
     });
   } catch (error) {
-    return NextResponse.json({ error: 'Proxy error' }, { status: 500 });
+    console.error('Fetch failed:', error);
+    return NextResponse.json({ error: 'Ошибка при запросе к WB', details: String(error) }, { status: 502 });
   }
 }
