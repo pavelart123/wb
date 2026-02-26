@@ -2,12 +2,12 @@
   "version": 2,
   "rewrites": [
     {
-      "source": "/api/1/search/:anything*",
-      "destination": "https://search.wb.ru/exactmatch/ru/common/v18/search?appType=1&curr=rub&dest=-1257786&lang=ru&resultset=catalog&sort=popular&spp=30&suppressSpellcheck=false"
+      "source": "/api/1/search/:query*",
+      "destination": "/api/proxy"
     },
     {
-      "source": "/api/:anything*",
-      "destination": "https://search.wb.ru/exactmatch/ru/common/v18/search?appType=1&curr=rub&dest=-1257786&lang=ru&resultset=catalog&sort=popular&spp=30&suppressSpellcheck=false"
+      "source": "/api/(.*)",
+      "destination": "/api/proxy"
     },
     {
       "source": "/(.*)",
